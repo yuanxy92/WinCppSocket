@@ -3,6 +3,7 @@
 #include "Socket.h"
 #include <thread>
 #include <chrono>
+#include <iostream>
 
 struct Socketdata {
 	WSADATA wsaData;
@@ -13,18 +14,8 @@ struct Socketdata {
 };
 
 Socket::Socket() {
-	int iResult;
-	// Initialize Winsock
 	socketdata = new Socketdata;
-	iResult = WSAStartup(MAKEWORD(2, 2), &(((Socketdata*)socketdata)->wsaData));
-	if (iResult != 0) {
-		printf("WSAStartup failed: %d\n", iResult);
-		exit(-1);
-	}
-	memset(&(((Socketdata*)socketdata)->hints), 0, sizeof(addrinfo));
-	((Socketdata*)socketdata)->hints.ai_family = AF_UNSPEC;
-	((Socketdata*)socketdata)->hints.ai_socktype = SOCK_STREAM;
-	((Socketdata*)socketdata)->hints.ai_protocol = IPPROTO_TCP;
+	
 	status = false;
 }
 
@@ -34,11 +25,23 @@ Socket::~Socket() {
 
 bool Socket::connectToHost(unsigned char *ip, int ip_len, int port,
 	int exceed_time) {
+	int iResult;
+	// Initialize Winsock
+
+	iResult = WSAStartup(MAKEWORD(2, 2), &(((Socketdata*)socketdata)->wsaData));
+	if (iResult != 0) {
+		printf("WSAStartup failed: %d\n", iResult);
+		exit(-1);
+	}
+	memset(&(((Socketdata*)socketdata)->hints), 0, sizeof(addrinfo));
+	((Socketdata*)socketdata)->hints.ai_family = AF_UNSPEC;
+	((Socketdata*)socketdata)->hints.ai_socktype = SOCK_STREAM;
+	((Socketdata*)socketdata)->hints.ai_protocol = IPPROTO_TCP;
 	// Connect to server.
 	char port_str[10];
 	ip[ip_len] = 0;
 	itoa(port, port_str, 10);
-	int iResult = getaddrinfo((PCSTR)ip, (PCSTR)port_str, &(((Socketdata*)socketdata)->hints), 
+	iResult = getaddrinfo((PCSTR)ip, (PCSTR)port_str, &(((Socketdata*)socketdata)->hints),
 		&(((Socketdata*)socketdata)->result));
 	if (iResult != 0) {
 		printf("getaddrinfo failed: %d\n", iResult);
@@ -64,6 +67,21 @@ bool Socket::connectToHost(unsigned char *ip, int ip_len, int port,
 		closesocket(((Socketdata*)socketdata)->ConnectSocket);
 		((Socketdata*)socketdata)->ConnectSocket = INVALID_SOCKET;
 	}
+	int a = 4096*4096*8;
+
+	if (setsockopt(((Socketdata*)socketdata)->ConnectSocket, SOL_SOCKET, SO_RCVBUF, (const char*)&a, sizeof(int)) == -1) {
+		fprintf(stderr, "Error setting socket opts: %s\n", strerror(errno));
+	}
+	if (setsockopt(((Socketdata*)socketdata)->ConnectSocket, SOL_SOCKET, SO_SNDBUF, (const char*)&a, sizeof(int)) == -1) {
+		fprintf(stderr, "Error setting socket opts: %s\n", strerror(errno));
+	}
+
+	int nNetTimeout = 3000;//3秒
+						   //发送时限
+	setsockopt(((Socketdata*)socketdata)->ConnectSocket, SOL_SOCKET, SO_SNDTIMEO, (char *)nNetTimeout, sizeof(int));
+	//接收时限
+	setsockopt(((Socketdata*)socketdata)->ConnectSocket, SOL_SOCKET, SO_RCVTIMEO, (char *)nNetTimeout, sizeof(int));
+
 	// Should really try the next address returned by getaddrinfo
 	// if the connect call failed
 	// But for this simple example we just free the resources
@@ -98,11 +116,15 @@ bool Socket::write(unsigned char *data, int data_len) {
 bool Socket::waitForReadyRead(int exceed_time) {
 	u_long argp = 0;
 	for (int i = 0; i < exceed_time; i += 5) {
-		ioctlsocket(((Socketdata*)socketdata)->ConnectSocket, SIOCATMARK, &argp);
+		ioctlsocket(((Socketdata*)socketdata)->ConnectSocket, FIONREAD, &argp);
 		if (argp > 0)
+		{
+			std::cout << argp << std::endl;
 			return true;
-		else
+		}
+		else {
 			std::this_thread::sleep_for(std::chrono::milliseconds(5));
+		}
 	}
 	printf("Over time!\n");
 	return false;
