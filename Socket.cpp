@@ -76,10 +76,10 @@ bool Socket::connectToHost(unsigned char *ip, int ip_len, int port,
 		fprintf(stderr, "Error setting socket opts: %s\n", strerror(errno));
 	}
 
-	int nNetTimeout = 3000;//3秒
-						   //发送时限
+	int nNetTimeout = 3000;//3脙毛
+						   //路垄脣脥脢卤脧脼
 	setsockopt(((Socketdata*)socketdata)->ConnectSocket, SOL_SOCKET, SO_SNDTIMEO, (char *)nNetTimeout, sizeof(int));
-	//接收时限
+	//陆脫脢脮脢卤脧脼
 	setsockopt(((Socketdata*)socketdata)->ConnectSocket, SOL_SOCKET, SO_RCVTIMEO, (char *)nNetTimeout, sizeof(int));
 
 	// Should really try the next address returned by getaddrinfo
@@ -149,5 +149,6 @@ bool Socket::abort() {
 	// cleanup
 	closesocket(((Socketdata*)socketdata)->ConnectSocket);
 	WSACleanup();
+	status = false;
 	return true;
 }
